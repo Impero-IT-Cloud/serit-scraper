@@ -121,38 +121,54 @@ class Enricher:
     def hent_daglig_leder(self, enhet: dict) -> Optional[str]:
         """
         Hent daglig leder fra rolledata i Enhetsregisteret.
-        Forsøker /roller-endepunktet først.
+
+        Har selskapet ingen registrert daglig leder (lov for AS), brukes
+        styrets leder i stedet, merket med " (styreleder)".
         """
         orgnr = enhet.get("organisasjonsnummer", "")
         url = f"https://data.brreg.no/enhetsregisteret/api/enheter/{orgnr}/roller"
 
         try:
             response = self.session.get(url, timeout=15)
-            if response.status_code == 200:
-                data = response.json()
-                # Roller kan ligge under ulike strukturer
-                roller = data if isinstance(data, list) else data.get("rollegrupper", [])
-
-                for gruppe in roller:
-                    type_data = gruppe.get("type", {})
-                    rolle_kode = type_data.get("kode", "")
-                    rolle_beskrivelse = type_data.get("beskrivelse", "").lower()
-
-                    if rolle_kode == "DAGL" or "daglig leder" in rolle_beskrivelse:
-                        roller_liste = gruppe.get("roller", [])
-                        if roller_liste:
-                            person = roller_liste[0].get("person", {})
-                            navn_data = person.get("navn", {})
-                            fornavn = navn_data.get("fornavn", "")
-                            etternavn = navn_data.get("etternavn", "")
-                            if fornavn or etternavn:
-                                return f"{fornavn} {etternavn}".strip().title()
-
             time.sleep(REQUEST_DELAY)
-        except requests.exceptions.RequestException as e:
+            if response.status_code != 200:
+                return None
+            data = response.json()
+        except (requests.exceptions.RequestException, ValueError) as e:
             logger.debug(f"Kunne ikke hente roller for {orgnr}: {e}")
+            return None
 
+        # Roller kan ligge under ulike strukturer
+        grupper = data if isinstance(data, list) else data.get("rollegrupper", [])
+
+        daglig_leder = None
+        styreleder = None
+        for gruppe in grupper:
+            for rolle in gruppe.get("roller", []):
+                if rolle.get("fratraadt") or rolle.get("avregistrert"):
+                    continue
+                kode = rolle.get("type", {}).get("kode", "")
+                beskrivelse = rolle.get("type", {}).get("beskrivelse", "").lower()
+                navn = self._personnavn(rolle)
+                if not navn:
+                    continue
+                if daglig_leder is None and (kode == "DAGL" or "daglig leder" in beskrivelse):
+                    daglig_leder = navn
+                elif styreleder is None and (kode == "LEDE" or beskrivelse == "styrets leder"):
+                    styreleder = navn
+
+        if daglig_leder:
+            return daglig_leder
+        if styreleder:
+            return f"{styreleder} (styreleder)"
         return None
+
+    @staticmethod
+    def _personnavn(rolle: dict) -> Optional[str]:
+        navn_data = (rolle.get("person") or {}).get("navn") or {}
+        deler = [navn_data.get("fornavn", ""), navn_data.get("mellomnavn", ""), navn_data.get("etternavn", "")]
+        navn = " ".join(d for d in deler if d).strip()
+        return navn.title() if navn else None
 
     def _navn_matcher_domene(self, navn: str, url: str) -> bool:
         """Sjekk at minst ett nøkkelord fra selskapsnavnet finnes i domenet."""

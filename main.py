@@ -90,7 +90,7 @@ def hent_og_filtrer(client: BrregClient, fylkesnummer: str, manuelt_ekskluderte:
     return filtrert, ekskluderte, statistikk
 
 
-def bygg_rad(enhet: dict, daglig_leder: str = "", regnskap: dict = None) -> dict:
+def bygg_rad(enhet: dict, daglig_leder: str | None = None, regnskap: dict = None) -> dict:
     """Bygg én resultatrad fra rådata."""
     naeringskode = enhet.get("naeringskode1", {})
     adresse_data = enhet.get("forretningsadresse", {}) or enhet.get("postadresse", {})
@@ -155,7 +155,7 @@ def kjør_for_fylke(
             orgnr = enhet.get("organisasjonsnummer", "")
             rad = bygg_rad(
                 enhet,
-                daglig_leder=enricher.hent_daglig_leder(enhet) or "",
+                daglig_leder=enricher.hent_daglig_leder(enhet),
                 regnskap=enricher.hent_regnskap(orgnr),
             )
             berikede.append(rad)
