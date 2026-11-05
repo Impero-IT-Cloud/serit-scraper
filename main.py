@@ -131,6 +131,14 @@ def kjør_for_fylke(
     """Kjør full pipeline for ett fylke. Returnerer (berikede, ekskluderte, statistikk)."""
     filtrert, ekskluderte, statistikk = hent_og_filtrer(client, fylkesnummer, manuelt_ekskluderte)
 
+    if ekskluderte:
+        logger.info(f"Henter regnskap for {len(ekskluderte)} ekskluderte...")
+        enricher_ekskl = Enricher()
+        for e in ekskluderte:
+            regnskap = enricher_ekskl.hent_regnskap(e.get("organisasjonsnummer", ""))
+            e["omsetning"] = regnskap.get("omsetning")
+            e["regnskap_aar"] = regnskap.get("regnskap_aar") or None
+
     if not filtrert:
         logger.warning("Ingen kandidater funnet etter filtrering.")
         return [], ekskluderte, statistikk
@@ -168,6 +176,9 @@ def kjør_for_fylke(
                     "detalj": f"{omsetning} MNOK (maks. {MAX_OMSETNING} MNOK)",
                     "fylkesnummer": rad.get("fylkesnummer", ""),
                     "fylke": rad.get("fylke", ""),
+                    "omsetning": omsetning,
+                    "regnskap_aar": rad.get("regnskap_aar") or None,
+                    "nettside": rad.get("nettside") or None,
                 })
             else:
                 godkjente.append(rad)
