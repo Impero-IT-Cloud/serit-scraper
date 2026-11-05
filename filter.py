@@ -112,6 +112,7 @@ def _ekskluder(ekskluderte: list, enhet: dict, grunn: str, detalj: str = ""):
         "detalj": detalj,
         "fylkesnummer": fylkesnr,
         "fylke": FYLKER.get(fylkesnr, ""),
+        "nettside": enhet.get("hjemmeside") or None,
     })
 
 

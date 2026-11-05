@@ -75,11 +75,8 @@ class SupabaseClient:
         if not data:
             return True
 
-        rader = [
-            {k: v for k, v in rad.items() if v is not None}
-            | {"kjort_dato": kjort_dato}
-            for rad in data
-        ]
+        # Behold None-verdier: PostgREST krever like nøkler i alle rader i en batch.
+        rader = [rad | {"kjort_dato": kjort_dato} for rad in data]
 
         logger.info(f"Skriver {len(rader)} ekskluderte til Supabase...")
         return self._upsert_batch("ekskluderte", rader, pk="organisasjonsnummer")
