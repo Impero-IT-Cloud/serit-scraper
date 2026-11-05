@@ -90,7 +90,16 @@ class Enricher:
             if not data:
                 return tom
 
-            siste = data[0]
+            # Brreg sorterer ikke nyeste først (f.eks. 2024 før 2025), så velg
+            # perioden med senest tilDato. Ved likt år foretrekkes selskaps-
+            # regnskap fremfor konsernregnskap.
+            siste = max(
+                data,
+                key=lambda r: (
+                    (r.get("regnskapsperiode") or {}).get("tilDato") or "",
+                    r.get("regnskapstype") == "SELSKAP",
+                ),
+            )
             periode = siste.get("regnskapsperiode", {})
             aar = (periode.get("tilDato") or "")[:4]
 
