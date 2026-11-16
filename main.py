@@ -190,6 +190,47 @@ def kjør_for_fylke(
     return berikede, ekskluderte, statistikk
 
 
+def oppdater_manuelt_lagt_til(
+    client: BrregClient,
+    supabase: SupabaseClient,
+    funnet: set,
+    manuelt_ekskluderte: set,
+) -> None:
+    """
+    Hold selskaper som er lagt til manuelt i appen oppdatert med fersk Brreg-data
+    (navn, adresse, daglig leder, regnskap). Selskaper scraperen fant selv i denne
+    kjøringen er allerede oppdatert, og manuelt ekskluderte hoppes over.
+    """
+    orgnumre = supabase.hent_manuelt_lagt_til() - funnet - manuelt_ekskluderte
+    if not orgnumre:
+        return
+
+    logger.info(f"Oppdaterer {len(orgnumre)} selskaper som er lagt til manuelt...")
+    enricher = Enricher()
+    rader = []
+    for orgnr in sorted(orgnumre):
+        enhet = client.hent_enhet(orgnr)
+        if not enhet or not enhet.get("organisasjonsnummer"):
+            logger.warning(f"  Fant ikke {orgnr} i Enhetsregisteret, hopper over")
+            continue
+        rad = bygg_rad(
+            enhet,
+            daglig_leder=enricher.hent_daglig_leder(enhet),
+            regnskap=enricher.hent_regnskap(orgnr),
+        )
+        # Brreg viser ikke antall ansatte for de minste selskapene. Da beholdes
+        # tallet som ble lagt inn for hånd i appen.
+        if enhet.get("antallAnsatte") is None:
+            rad.pop("antall_ansatte", None)
+        # Ikke tøm felter som ble fylt ut da selskapet ble lagt inn
+        for felt in ("nettside", "nettside_kilde", "epost", "telefon", "daglig_leder"):
+            if not rad.get(felt):
+                rad.pop(felt, None)
+        rader.append(rad)
+
+    supabase.oppdater_manuelt_lagt_til(rader)
+
+
 def slå_sammen_statistikk(alle_statistikk: list[dict]) -> dict:
     kombinert = {}
     for stat in alle_statistikk:
@@ -265,6 +306,12 @@ def main():
     kjort_dato = datetime.now(timezone.utc).isoformat()
     supabase.skriv_kandidater(alle_berikede, kjort_dato)
     supabase.skriv_ekskluderte(alle_ekskluderte, kjort_dato)
+    oppdater_manuelt_lagt_til(
+        client,
+        supabase,
+        funnet={r["organisasjonsnummer"] for r in alle_berikede},
+        manuelt_ekskluderte=manuelt_ekskluderte,
+    )
 
     aktive_nace = list(NACE_KODER) + (list(UTVIDEDE_NACE_KODER) if INKLUDER_UTVIDEDE_KODER else [])
     supabase.skriv_innstillinger({
