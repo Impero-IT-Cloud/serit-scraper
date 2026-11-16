@@ -48,6 +48,39 @@ class SupabaseClient:
             logger.warning(f"Kunne ikke hente manuelt_ekskluderte: {e}")
         return set()
 
+    def hent_manuelt_lagt_til(self) -> set:
+        """Hent organisasjonsnumre som er lagt til manuelt i appen (utenfor scraperen)."""
+        if not self.enabled:
+            return set()
+        try:
+            r = requests.get(
+                f"{self.url}/rest/v1/kandidater?select=organisasjonsnummer&lagt_til_manuelt=eq.true",
+                headers=self._headers,
+                timeout=15,
+            )
+            if r.status_code == 200:
+                return {row["organisasjonsnummer"] for row in r.json()}
+            logger.warning(f"Kunne ikke hente manuelt lagt til: {r.status_code} {r.text}")
+        except Exception as e:
+            logger.warning(f"Kunne ikke hente manuelt lagt til: {e}")
+        return set()
+
+    def oppdater_manuelt_lagt_til(self, data: list[dict]) -> bool:
+        """
+        Oppdater Brreg-data for selskaper som er lagt til manuelt, men som scraperen
+        ikke fant selv. kjort_dato settes ikke, så appen ser fortsatt at scraperen
+        ikke har funnet dem. Manuelle felter og merkingen røres ikke.
+        Én forespørsel per rad, fordi radene kan ha ulike nøkler.
+        """
+        if not self.enabled or not data:
+            return False
+        logger.info(f"Oppdaterer {len(data)} manuelt lagt til selskaper i Supabase...")
+        ok = True
+        for rad in data:
+            rad = {k: v for k, v in rad.items() if k not in _MANUELLE_FELTER}
+            ok = self._upsert_batch("kandidater", [rad], pk="organisasjonsnummer") and ok
+        return ok
+
     def skriv_kandidater(self, data: list[dict], kjort_dato: str) -> bool:
         """
         Upsert kandidater. Manuelle felter (mobil_daglig_leder, notat)
