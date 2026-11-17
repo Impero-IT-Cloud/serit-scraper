@@ -150,7 +150,8 @@ Etter kjøring skrives resultater til Supabase via REST API:
 - **`kandidater`** — upsert på `organisasjonsnummer`. Manuelle felter (`mobil_daglig_leder`, `notat`) overskrives aldri av scraperen.
 - **`ekskluderte`** — slettes og skrives på nytt ved hver kjøring (snapshot).
 - **`manuelt_ekskluderte`** — leses ved oppstart. Selskaper i denne tabellen filtreres bort og telles som "Manuelt ekskludert" i statistikken.
-- **Manuelt lagt til** — selskaper som er lagt inn for hånd i appen (`kandidater.lagt_til_manuelt = true`) og som scraperen ikke fant selv, får fersk Brreg-data (navn, adresse, daglig leder, regnskap) etter hver kjøring. `kjort_dato` settes ikke for dem, og antall ansatte som er lagt inn for hånd beholdes når Brreg ikke oppgir det.
+- **Manuelt lagt til** — selskaper som er lagt inn for hånd i appen (`kandidater.lagt_til_manuelt = true`) og som scraperen ikke fant selv, får fersk Brreg-data (navn, adresse, daglig leder, regnskap) etter hver kjøring. `kjort_dato` settes ikke for dem.
+- **Manuelle overstyringer** (`nettside_endret_manuelt`, `telefon_endret_manuelt`, `epost_endret_manuelt`, `antall_ansatte_endret_manuelt`) skrives aldri av scraperen. Ansattgrensen bruker alltid tallet fra Brreg.
 
 ## Konfigurasjon
 
