@@ -218,10 +218,9 @@ def oppdater_manuelt_lagt_til(
             daglig_leder=enricher.hent_daglig_leder(enhet),
             regnskap=enricher.hent_regnskap(orgnr),
         )
-        # Brreg viser ikke antall ansatte for de minste selskapene. Da beholdes
-        # tallet som ble lagt inn for hånd i appen.
-        if enhet.get("antallAnsatte") is None:
-            rad.pop("antall_ansatte", None)
+        # Antall ansatte lagt inn for hånd ligger i antall_ansatte_endret_manuelt,
+        # som scraperen aldri skriver. Her lagres bare tallet fra Brreg.
+        rad["antall_ansatte"] = enhet.get("antallAnsatte")
         # Ikke tøm felter som ble fylt ut da selskapet ble lagt inn
         for felt in ("nettside", "nettside_kilde", "epost", "telefon", "daglig_leder"):
             if not rad.get(felt):
